@@ -13,6 +13,58 @@ class TscmUnit(Hinawa.SndUnit):
     supported_coax_sources = ('S/PDIF-1/2', 'Analog-1/2')
     supported_led_status = ('off', 'on')
 
+    _specs = {
+        'FW-1884': {
+            'opt-out-mode': {
+                'stream-9/10/11/12/13/14/15/16':    0x000c0000,
+                'stream-1/2/3/4/5/6/7/8':           0x00840800,
+                'stream-11/12':                     0x00080400,
+                'analog-1/2/3/4/5/6/7/8':           0x00048800,
+            },
+            'coax-out-mode': {
+                'stream-17/18':                     0x00020000,
+                'stream-1/2':                       0x00000200,
+            },
+            'stream-in-17/18-mode': {
+                'coax-in-1/2':                      0x00000100,
+                'opt-in-1/2':                       0x00010000,
+            },
+            'mixer-input-labels': {},
+        },
+        'FW-1804': {
+            'opt-out-mode': {
+                'stream-3/4/5/6/7/8/9/10' :         0x000c0000,
+                # TODO: can do it?
+                'stream-11/12':                     0x00080400,
+                'analog-1/2/3/4/5/6/7/8':           0x00048800,
+            },
+            'coax-out-mode': {
+                'stream-11/12':                     0x00020000,
+                'stream-1/2':                       0x00000200,
+            },
+            'stream-in-17/18-mode': {
+                'coax-in-1/2':                      0x00000100,
+                'opt-in-1/2':                       0x00010000,
+            },
+            'mixer-input-labels': {
+                'analog-1', 'analog-2', 'analog-3', 'analog-4',
+                'analog-5', 'analog-6', 'analog-7', 'analog-8',
+                'adat-1', 'adat-2', 'adat-3', 'adat-4',
+                'adat-5', 'adat-6', 'adat-7', 'adat-8',
+                'spdif-1', 'spdif-2',
+            },
+        },
+        'FW-1082': {
+            'opt-out-mode': {},
+            'coax-out-mode': {
+                'stream-9/10':                      0x00000200,
+                'stream-1/2':                       0x00020000,
+            },
+            'stream-in-17/18-mode': {},
+            'mixer-input-labels': {},
+        },
+    }
+
     def __init__(self, path):
         if re.match('/dev/snd/hwC[0-9]*D0', path):
             super().__init__()
@@ -27,6 +79,20 @@ class TscmUnit(Hinawa.SndUnit):
             Hinawa.FwUnit.listen(self)
         else:
             raise ValueError('Invalid argument for character device')
+        self.name = self._parse_name()
+        self.spec = self._specs[self.name]
+        # For permanent cache.
+        self._filepath = '/tmp/hinawa-{0:08x}'.format(self.get_property('guid'))
+
+    def _parse_name(self):
+        literal = bytearray()
+        for i,q in enumerate(self.get_config_rom()[28:]):
+            for j in range(4):
+                c = (q >> (24 - 8 * j)) & 0xff
+                if c == 0x00:
+                    break
+                literal.append(c)
+        return literal.decode('utf-8').rstrip()
 
     def _read_transaction(self, addr, quads):
         req = Hinawa.FwReq()
@@ -57,6 +123,8 @@ class TscmUnit(Hinawa.SndUnit):
         self._write_transaction(0xffff00000228, data)
     def get_clock_source(self):
         data = self._read_transaction(0xffff00000228, 1)
+        print(data)
+        print('{0:08x}'.format(data[0]))
         index = ((data[0] & 0x00ff0000) >> 16) - 1
         if index >= len(self.supported_clock_sources):
             raise OSError('Unexpected value for clock source.')
@@ -129,3 +197,20 @@ class TscmUnit(Hinawa.SndUnit):
         else:
             data.append(0x00010000 | position)
         self._write_transaction(0xffff00000404, data)
+
+    def get_mixer_input_labels(self):
+        return self.spec['mixer-input-labels']
+    def set_mixer_input(self):
+        return
+    def get_mixer_input(self, op, input):
+        ops = ('volume', 'mute', )
+        return
+    def get_mixer_input_volume(self, input):
+        if input not in self.spec['mixer-input-labels']:
+            raise ValueError('Invalid argument for mixer input pair.')
+    def get_mixer_input_mute(self, input):
+        if input not in self.spec['mixer-input-labels']:
+            raise ValueError('Invalid argument for mixer input pair.')
+    def get_mixer_input_pan(self, input):
+        if input not in self.spec['mixer-input-labels']:
+            raise ValueError('Invalid argument for mixer input pair.')
