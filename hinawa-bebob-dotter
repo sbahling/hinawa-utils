@@ -1,0 +1,312 @@
+#!/usr/bin/env python3
+
+import sys
+import json
+
+class Plug():
+    def __init__(self):
+        self.index = -1
+
+    def add_index(self, index):
+        self.index = index
+
+class Unit():
+    def __init__(self):
+        self.plugs = {'input': [], 'output': []}
+        self.subunits = []
+        self.connections = []
+
+    def find_plug(self, type, dir, id, name):
+        list = self.plugs[dir]
+        for plug in list:
+            if plug.type == type and plug.dir == dir and plug.id == id and \
+               plug.name == name:
+                    return plug
+        return UnitPlug(list, type, dir, id, name)
+
+    def find_subunit(self, type, id):
+        list = self.subunits
+        for subunit in list:
+            if subunit.type == type and subunit.id == id:
+                return subunit
+        return Subunit(list, type, id)
+
+    def add_connection(self, input, output):
+        self.connections.append({'src': input, 'dst': output})
+
+class UnitPlug(Plug):
+    def __init__(self, list, type, dir, id, name):
+        self.type = type
+        self.dir = dir
+        self.id = id
+        self.name = name
+        list.append(self)
+
+    def __repr__(self):
+        return '{0}, {1}, {2}, {3}'.format(self.type, self.dir, self.id,
+                                           self.name)
+
+class Subunit():
+    def __init__(self, list, type, id):
+        self.plugs = {'input': [], 'output': []}
+        self.type = type
+        self.id = id
+        self.function_blocks = []
+        list.append(self)
+
+    def __repr__(self):
+        return '{0} {1}'.format(self.type, self.id)
+
+    def find_plug(self, dir, id, name):
+        list = self.plugs[dir]
+        for plug in list:
+            if plug.dir == dir and plug.id == id and plug.name == name:
+                return plug
+        return SubunitPlug(list, dir, id, name)
+
+    def find_function_block(self, type, id, purpose):
+        list = self.function_blocks
+        for fb in list:
+            if fb.type == type and fb.id == id and fb.purpose == purpose:
+                return fb
+        return FunctionBlock(list, type, id, purpose)
+
+
+class SubunitPlug(Plug):
+    def __init__(self, list, dir, id, name):
+        self.dir = dir
+        self.id = id
+        self.name = name
+        list.append(self)
+
+    def __repr__(self):
+        return '{0} {1} {2}'.format(self.dir, self.id, self.name)
+
+
+class FunctionBlock():
+    def __init__(self, list, type, id, purpose):
+        self.plugs = {'input': [], 'output': []}
+        self.type = type
+        self.id = id
+        self.purpose = purpose
+        list.append(self)
+
+    def __repr__(self):
+        return '{0} {1} {2}'.format(self.type, self.id, self.purpose)
+
+    def find_plug(self, dir, id, name):
+        list = self.plugs[dir]
+        for plug in self.plugs[dir]:
+            if plug.dir == dir and plug.id == id and plug.name == name:
+                return plug
+        return FunctionBlockPlug(list, dir, id, name)
+
+
+class FunctionBlockPlug(Plug):
+    def __init__(self, list, dir, id, name):
+        self.dir = dir
+        self.id = id
+        self.name = name
+        list.append(self)
+
+    def __repr__(self):
+        return '{0} {1} {2}'.format(self.dir, self.id, self.name)
+
+
+class Deserializer():
+    @classmethod
+    def deserialize(cls, filename):
+        fd = open(filename)
+        data = json.load(fd)
+        unit = Unit()
+        cls._build_unit_plugs(unit, data)
+        cls._build_subunit_plugs(unit, data)
+        cls._build_function_block_plugs(unit, data)
+        cls._assign_numerical_index(unit)
+        cls._generate_connections(unit, data)
+        del data
+        del fd
+        return unit
+
+    @staticmethod
+    def _build_unit_plugs(unit, data):
+        for type, type_plugs in data['units'].items():
+            for dir, plugs in type_plugs.items():
+                for id, attrs in plugs.items():
+                    unit.find_plug(type, dir, id, attrs['name'])
+
+    @staticmethod
+    def _build_subunit_plugs(unit, data):
+        for type, type_plugs in data['subunits'].items():
+            for id, id_plugs in type_plugs.items():
+                subunit = unit.find_subunit(type, id)
+
+                for dir, plugs in id_plugs.items():
+                    for plug_id, attrs in plugs.items():
+                        subunit.find_plug(dir, plug_id, attrs['name'])
+
+    @staticmethod
+    def _build_function_block_plugs(unit, data):
+        for type, type_plugs in data['function-blocks'].items():
+            for id, id_plugs in type_plugs.items():
+                subunit = unit.find_subunit(type, id)
+
+                for fb_type, fb_type_plugs in id_plugs.items():
+                    for fb_id, fb_attrs in fb_type_plugs.items():
+                        fb = subunit.find_function_block(fb_type, fb_id,
+                                                         fb_attrs['purpose'])
+                        for plug_id, attrs in fb_attrs['outputs'].items():
+                            fb.find_plug('output', plug_id, attrs['name'])
+                        for plug_id, attrs in fb_attrs['inputs'].items():
+                            fb.find_plug('input', plug_id, attrs['name'])
+
+    @staticmethod
+    def _assign_numerical_index(unit):
+        index = 0
+        for dir, plugs in unit.plugs.items():
+            for plug in plugs:
+                plug.add_index(index)
+                index += 1
+        for subunit in unit.subunits:
+            for dir, plugs in subunit.plugs.items():
+                for plug in plugs:
+                    plug.add_index(index)
+                    index += 1
+            for fb in subunit.function_blocks:
+                for dir, plugs in fb.plugs.items():
+                    for plug in plugs:
+                        plug.add_index(index)
+                        index += 1
+
+    @staticmethod
+    def _seek_peer(unit, plug, data):
+        mode = data['mode']
+        dir = data['dir']
+        attrs = data['data']
+        if mode == 'unit':
+            for peer in unit.plugs[dir]:
+                if peer.dir == dir and peer.type == attrs['unit-type'] and \
+                   int(peer.id) == attrs['plug']:
+                    return peer
+        else:
+            for subunit in unit.subunits:
+                if subunit.type == attrs['subunit-type'] and \
+                   int(subunit.id) == attrs['subunit-id']:
+                    if mode == 'subunit':
+                        for peer in subunit.plugs[dir]:
+                            if peer.dir == dir and \
+                               int(peer.id) == attrs['plug']:
+                                return peer
+                    else:
+                        for fb in subunit.function_blocks:
+                            if int(fb.type) == attrs['function-block-type'] \
+                               and int(fb.id) == attrs['function-block-id']:
+                                for peer in fb.plugs[dir]:
+                                    if peer.dir == dir and \
+                                       int(peer.id) == attrs['plug']:
+                                        return peer
+        print('Missing!')
+        return None
+
+    @staticmethod
+    def _make_connection(unit, plug, data):
+        input = data['input']
+        if 'dir' in input:
+            peer = Deserializer._seek_peer(unit, plug, input)
+            if peer:
+                if plug.dir == 'input':
+                    unit.add_connection(peer, plug)
+                else:
+                    unit.add_connection(plug, peer)
+
+        for output in data['outputs']:
+            peer = Deserializer._seek_peer(unit, plug, output)
+            if peer:
+                if plug.dir == 'input':
+                    unit.add_connection(peer, plug)
+                else:
+                    unit.add_connection(plug, peer)
+
+    @staticmethod
+    def _generate_connections(unit, data):
+        for type, type_plugs in data['units'].items():
+            for dir, plugs in type_plugs.items():
+                for id, attrs in plugs.items():
+                    plug = unit.find_plug(type, dir, id, attrs['name'])
+                    Deserializer._make_connection(unit, plug, attrs)
+
+        for type, type_plugs in data['subunits'].items():
+            for id, id_plugs in type_plugs.items():
+                subunit = unit.find_subunit(type, id)
+
+                for dir, plugs in id_plugs.items():
+                    for plug_id, attrs in plugs.items():
+                        plug = subunit.find_plug(dir, plug_id, attrs['name'])
+                        Deserializer._make_connection(unit, plug, attrs)
+
+        for type, type_plugs in data['function-blocks'].items():
+            for id, id_plugs in type_plugs.items():
+                subunit = unit.find_subunit(type, id)
+
+                for fb_type, fb_type_plugs in id_plugs.items():
+                    for fb_id, fb_attrs in fb_type_plugs.items():
+                        fb = subunit.find_function_block(fb_type, fb_id,
+                                                         fb_attrs['purpose'])
+                        for plug_id, attrs in fb_attrs['outputs'].items():
+                            plug = fb.find_plug('output', plug_id,
+                                                attrs['name'])
+                            Deserializer._make_connection(unit, plug, attrs)
+
+                        for plug_id, attrs in fb_attrs['inputs'].items():
+                            plug = fb.find_plug('input', plug_id, attrs['name'])
+                            Deserializer._make_connection(unit, plug, attrs)
+
+argv = sys.argv
+argc = len(argv)
+
+if argc < 2:
+    print('arguments:')
+    print(' 1: A path to file with output of hinawa-bebob-parser')
+    sys.exit()
+
+filename = argv[1]
+unit = Deserializer.deserialize(filename)
+
+AUDIO_FB_NAME = {
+    '128' : 'Selector Function Block',
+    '129' : 'Feature Function Block',
+    '130' : 'Mixer Function Block',
+}
+
+node_styles = {
+    'output': ', fillcolor = "tomato", style = "filled"',
+    'input' : ', fillcolor = "gold", style = "filled"',
+}
+
+print('digraph {')
+print('  rankdir = LR')
+print('  label = "Unit"')
+for dir, plugs in unit.plugs.items():
+    for plug in plugs:
+        print('    {0} [label = "{1}"{2}]'.format(plug.index, plug.name, node_styles[plug.dir]))
+for subunit in unit.subunits:
+    print('  subgraph cluster_subunit_{0}_{1} {{'.format(subunit.type, subunit.id))
+    print('    label = "{0} subunit {1}"'.format(subunit.type.capitalize(), subunit.id))
+    for dir, plugs in subunit.plugs.items():
+        for plug in plugs:
+            print('    {0} [label = "{1}"{2}]'.format(plug.index, plug.name, node_styles[plug.dir]))
+    for fb in subunit.function_blocks:
+        if subunit.type == 'audio':
+            name = AUDIO_FB_NAME[fb.type]
+        print('    subgraph cluster_subunit_{0}_{1} {{'.format(fb.type, fb.id))
+        print('    label = "{0} {1}"'.format(name, fb.id))
+        for dir, plugs in fb.plugs.items():
+            for plug in plugs:
+                print('      {0} [label = "{1}"{2}]'.format(plug.index, plug.name, node_styles[plug.dir]))
+        print('    }')
+    print('  }')
+
+for conn in unit.connections:
+    print('  {0} -> {1}'.format(conn['src'].index, conn['dst'].index))
+
+print('}')
