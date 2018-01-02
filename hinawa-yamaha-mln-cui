@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+
+import sys
+
+import gi
+gi.require_version('Hinawa', '1.0')
+from gi.repository import Hinawa
+
+if len(sys.argv) == 1:
+    print('At least one argument is required for firewire character device.')
+    sys.exit()
+path = sys.argv[1]
+
+unit = Hinawa.FwUnit()
+unit.open(path)
+unit.listen()
+
+req = Hinawa.FwReq()
+req.set_property('timeout', 4000)
+
+def parse_string(chunk, has_label):
+    literal = bytearray()
+    char = chunk >> 24
+    if char != 0x00 and not has_label:
+        literal.append(char)
+    char = (chunk >> 16) & 0xff
+    if char != 0x00:
+        literal.append(char)
+        char = (chunk >> 8) & 0xff
+        if char != 0x00:
+            literal.append(char)
+            char = chunk & 0xff
+            if char != 0x00:
+                literal.append(char)
+    return literal.decode('US-ASCII')
+
+def parse_string_block(chunks):
+    string = parse_string(chunks[0], True)
+    for chunk in chunks[1:]:
+        string += parse_string(chunk, False)
+    return string
+
+def dump_frames(addr, frames):
+    flag = False
+    for i, frame in enumerate(frames):
+        msb = (frame >> 24) & 0xff
+        if msb == 0x00:
+            flag = False
+        elif msb == 0x1f:
+            flag = True
+        if flag:
+            literal = bytearray()
+            if msb == 0x1f:
+                literal.append(0x2e)
+            else:
+                literal.append((frame >> 24) & 0xff)
+            c = (frame >> 16) & 0xff
+            if c != 0x00:
+                literal.append(c)
+                c = (frame >> 8)  & 0xff
+                if c != 0x00:
+                    literal.append(c)
+                    c = frame & 0xff
+                    if c != 0x00:
+                        literal.append(c)
+            label = literal.decode('US-ASCII')
+            print('    {0:016x}: {1:08x} "{2}"'.format(addr + 4 * i, frame, label))
+        else:
+            print('    {0:016x}: {1:08x}'.format(addr + 4 * i, frame))
+
+def dump(unit, addrs):
+    for key, attr in addrs.items():
+        print(key)
+        addr = attr[0]
+        addr_max = addr + attr[1]
+        while addr < addr_max:
+            size = 512
+            if addr + size > addr_max:
+                size = addr_max - addr
+            try:
+                frames = req.read(unit, addr, size // 4)
+            except Exception as e:
+                print('{0:016x}, {1:016x}: {2}'.format(addr, size, e))
+            else:
+                dump_frames(addr, frames)
+            addr += size
+
+def parse_a(unit, base, size):
+    print('Region A:')
+    addr = base + 68
+    frames = req.read(unit, addr, 3)
+    end = base + frames[2]
+
+    addr = base + frames[1]
+    frames = req.read(unit, addr, 5)
+    print('{0:016x}:'.format(addr))
+    for i, frame in enumerate(frames):
+        print('    {0:02d}: {1:08x}'.format(i, frame))
+    addr += 20
+
+    while addr < end:
+        frames = req.read(unit, addr, 2)
+        size = frames[0] & 0xffff
+        if size == 0:
+            break
+        addr += 8
+
+        for i, frame in enumerate(frames):
+            print('  {0:08x}'.format(frame))
+
+        frames = req.read(unit, addr, size // 4)
+        for i, frame in enumerate(frames):
+            print('    {0:02d}: {1:08x}'.format(i, frame))
+        addr += size
+
+def parse_b_1st_section(unit, base, end):
+    addr = base
+    frames = req.read(unit, addr, 1)
+    entries = frames[0]
+    addr += 4
+
+    for entry in range(entries):
+        frames = req.read(unit, addr, 1)
+        label_addr = 0xffffe0000000 + frames[0]
+        chunks = req.read(unit, label_addr, 9)
+        if entry == 0:
+            print('    entry {0}: ({1:016x})'.format(entry, addr))
+            for i, chunk in enumerate(chunks):
+                print('      {0:02d}: {1:08x}'.format(i, chunk))
+        else:
+            label = parse_string_block(chunks)
+            print('    entry {0:02d}: "{1}" (0x{2:016x})'.format(entry, label, addr))
+        addr += 4
+
+        for count in range(5):
+            print('      param {0}'.format(count))
+            frames = req.read(unit, addr, 1)
+            addr += 4
+            size = frames[0]
+            frames = req.read(unit, addr, size // 4)
+            for i, frame in enumerate(frames):
+                print('        {0:02d}: {1:08x}'.format(i, frame))
+            addr += size
+
+def parse_b_2nd_section(unit, base, end):
+    entries = (end - base) // 48
+    addr = base
+
+    for entry in range(entries):
+        frames = req.read(unit, addr, 12)
+        print('    entry: {0} (0x{1:016x})'.format(entry, addr))
+        for i, frame in enumerate(frames):
+            print('      {0:02d}: {1:08x}'.format(i, frame))
+        addr += 48
+
+def parse_b_3rd_section(unit, base, end):
+    entries = (end - base) // 28
+    addr = base
+
+    for entry in range(entries):
+        frames = req.read(unit, addr, 7)
+        if frames[0] == 0x00000000:
+            break
+        chunks = req.read(unit, 0xffffe0000000 + frames[0], 9)
+
+        if entry == 0:
+            print('    entry: {0}: (0x{1:016x})'.format(entry, addr))
+            for i, chunk in enumerate(chunks):
+                print('      {0:02d}: {1:08x}'.format(i, chunk))
+        else:
+            label = parse_string_block(chunks)
+            print('    entry: "{0}": "{1}" (0x{2:016x})'.format(entry, label, addr))
+        for i, frame in enumerate(frames):
+            print('      {0:02d}: {1:08x}'.format(i, frame))
+        addr += 28
+
+def parse_b_4th_section(unit, base, end):
+    addr = base
+    count = 0
+    while addr < end:
+        frames = req.read(unit, addr, 6)
+        if frames[0] == 0x00000000:
+            break
+        addr += 24
+        chunks = req.read(unit, 0xffffe0000000 + frames[0], 9)
+        label = parse_string_block(chunks)
+        print('    entry {0}: "{1}"'.format(count, label))
+        for i, frame in enumerate(frames):
+            print('      {0:02d}: {1:08x}'.format(i, frame))
+        count += 1
+
+def parse_b(unit, base, size):
+    print('Region B:')
+    print('hoge: {0:016x}'.format(base))
+    addr = base
+    frames = req.read(unit, addr, 4)
+    addr += 16
+
+    print('  Sections:')
+    sections = []
+    for i, frame in enumerate(frames):
+        sections.append(base + frame)
+        print('    {0:02d}: {1:016x}'.format(i, base + frame))
+
+    print('  section 1:')
+    parse_b_1st_section(unit, addr, sections[0])
+    print('  section 2:')
+    parse_b_2nd_section(unit, sections[0], sections[1])
+    print('  section 3:')
+    parse_b_3rd_section(unit, sections[1], sections[2])
+    # 0x365c-37c0?
+    print('  section 4:')
+    parse_b_4th_section(unit, sections[2], sections[3])
+    # 0x37c4-37d8?
+    # 0x37d8-: labels
+
+def parse_c(unit, base, size):
+    print('Region C:')
+    addr = base + 8
+    frames = req.read(unit, addr, 7)
+    for i, frame in enumerate(frames):
+        print('  {0:02d}: {1:08x}'.format(i, frame))
+
+    addr = base + 36
+    frames = req.read(unit, addr, 8)
+    label = parse_string_block(frames)
+    print('  "{0}"'.format(label))
+
+    addr = base + 72
+    frames = req.read(unit, addr, 8)
+    label = parse_string_block(frames)
+    print('  "{0}"'.format(label))
+
+def parse_d_chunk(chunks):
+    for i, chunk in enumerate(chunks):
+        print('    {0:02d}: {1:08x}'.format(i, chunk))
+
+def parse_d(unit, base):
+    frames = req.read(unit, base, 1)
+    count = frames[0]
+    base += 4
+
+    print('Region D:')
+    for i in range(count):
+        addr = base + i * 4 * 5
+        frames = req.read(unit, addr, 5)
+        print('  entry {0:02d}: (0x{1:016x})'.format(i, addr))
+        parse_d_chunk(frames)
+
+def parse(unit, addrs):
+    parse_a(unit, addrs['A'][0], addrs['A'][1])
+    parse_b(unit, addrs['B'][0], addrs['B'][1])
+    parse_c(unit, addrs['C'][0], addrs['C'][1])
+    parse_d(unit, addrs['D'][0])
+
+if len(sys.argv) == 2 or sys.argv[2] != 'dump':
+    func = parse
+else:
+    func = dump
+
+addrs = {}
+frames = req.read(unit, 0xffffe0000000, 8)
+addrs['A'] = (0xffffe0000000 + frames[0], frames[1])
+addrs['B'] = (0xffffe0000000 + frames[2], frames[3])
+addrs['C'] = (0xffffe0000000 + frames[4], frames[5])
+addrs['D'] = (0xffffe0000000 + frames[6], frames[7])
+
+func(unit, addrs)
