@@ -103,9 +103,10 @@ class Ieee1212RootDirectoryParser():
         self._oui_dep_handles[specifier].append(handle)
 
     def add_vendor_dep_handle(self, vendor_id, handle):
-        if vendor_id not in self._vendor_dep_handles:
-            self._vendor_dep_handles[vendor_id] = []
-        self._vendor_dep_handles[vendor_id].append(handle)
+        specifier = (vendor_id, None)
+        if specifier not in self._vendor_dep_handles:
+            self._vendor_dep_handles[specifier] = []
+        self._vendor_dep_handles[specifier].append(handle)
 
     def add_keyword_dep_handle(self, keyword, handle):
         if keyword not in self._keyword_dep_handles:
@@ -316,8 +317,8 @@ class Ieee1212RootDirectoryParser():
             else:
                 vendor_id = self._vendor_id
 
-        if (ctx[0] != DirectoryContext.VENDOR or ctx[1] == vendor_id):
-            ctx = (DirectoryContext.VENDOR, vendor_id)
+        if (ctx[0] != DirectoryContext.VENDOR or ctx[1][0] == vendor_id):
+            ctx = (DirectoryContext.VENDOR, (vendor_id, None))
 
         return self._parse_directory_entries(key_type, ctx, entries,
                                              self._COMMON_KEYS)
@@ -339,8 +340,8 @@ class Ieee1212RootDirectoryParser():
             else:
                 vendor_id = self._vendor_id
 
-        if (ctx[0] != DirectoryContext.VENDOR or ctx[1] == vendor_id):
-            ctx = (DirectoryContext.VENDOR, vendor_id)
+        if (ctx[0] != DirectoryContext.VENDOR or ctx[1][0] == vendor_id):
+            ctx = (DirectoryContext.VENDOR, (vendor_id, None))
 
         return self._parse_directory_entries(key_type, ctx, entries,
                                              self._COMMON_KEYS)
@@ -540,7 +541,7 @@ class Ieee1212RootDirectoryParser():
                 break
         else:
             raise ValueError('Mandatory entry is missing in root directory.')
-        ctx = (DirectoryContext.VENDOR, self._vendor_id)
+        ctx = (DirectoryContext.VENDOR, (self._vendor_id, None))
 
         self._bus_name = bus_name
 
