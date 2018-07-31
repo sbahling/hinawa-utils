@@ -7,7 +7,7 @@ __all__ = ['Ieee1212RootDirectoryParser']
 
 class DirectoryContext(Enum):
     VENDOR          = auto()
-    SPECIFIER       = auto()
+    OUI             = auto()
     BUS_DEPENDENT   = auto()
     KEYWORD         = auto()
 
@@ -87,7 +87,7 @@ class Ieee1212RootDirectoryParser():
 
     def __init__(self):
         self._bus_dep_handles = {}
-        self._spec_dep_handles = {}
+        self._oui_dep_handles = {}
         self._vendor_dep_handles= {}
         self._keyword_dep_handles = {}
 
@@ -98,9 +98,9 @@ class Ieee1212RootDirectoryParser():
 
     def add_spec_dep_handle(self, spec_id, version, handle):
         specifier = (spec_id, version)
-        if specifier not in self._spec_dep_handles:
-            self._spec_dep_handles[specifier] = []
-        self._spec_dep_handles[specifier].append(handle)
+        if specifier not in self._oui_dep_handles:
+            self._oui_dep_handles[specifier] = []
+        self._oui_dep_handles[specifier].append(handle)
 
     def add_vendor_dep_handle(self, vendor_id, handle):
         if vendor_id not in self._vendor_dep_handles:
@@ -368,7 +368,7 @@ class Ieee1212RootDirectoryParser():
                 break
         else:
             raise ValueError('Mandatory entries are missing in feature directory.')
-        ctx = (DirectoryContext.SPECIFIER, (specifier_id, version))
+        ctx = (DirectoryContext.OUI, (specifier_id, version))
 
         keys = self._merge_common_keys(DEFINED_KEYS)
 
@@ -402,7 +402,7 @@ class Ieee1212RootDirectoryParser():
                 break
         else:
             raise ValueError('Mandatory entries are missing in unit directory.')
-        ctx = (DirectoryContext.SPECIFIER, (specifier_id, version))
+        ctx = (DirectoryContext.OUI, (specifier_id, version))
 
         keys = self._merge_common_keys(DEFINED_KEYS)
 
@@ -418,7 +418,7 @@ class Ieee1212RootDirectoryParser():
                 specifier_id = entry[1]
             elif entry[0] == (KeyType.VERSION.value, EntryType.IMMEDIATE):
                 version = entry[1]
-                ctx = (DirectoryContext.SPECIFIER, (specifier_id, version))
+                ctx = (DirectoryContext.OUI, (specifier_id, version))
                 break
         else:
             # TODO: this is a work around. Precisely, need to decide according
@@ -482,7 +482,7 @@ class Ieee1212RootDirectoryParser():
         }
         EXTERNAL_HANDLES = {
             DirectoryContext.VENDOR:        self._vendor_dep_handles,
-            DirectoryContext.SPECIFIER:     self._spec_dep_handles,
+            DirectoryContext.OUI:           self._oui_dep_handles,
             DirectoryContext.BUS_DEPENDENT: self._bus_dep_handles,
             DirectoryContext.KEYWORD:       self._keyword_dep_handles,
         }
