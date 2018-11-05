@@ -13,7 +13,7 @@ from hinawa_utils.tscm.config_rom_parser import TscmConfigRomParser
 
 __all__ = ['TscmUnit']
 
-class TscmUnit(Hinawa.SndUnit):
+class TscmUnit(Hinawa.SndTscm):
     _BASE_ADDR = 0xffff00000000
 
     supported_sampling_rates = (44100, 48000, 88200, 96000)
