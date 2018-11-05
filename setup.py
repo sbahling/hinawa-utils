@@ -42,7 +42,7 @@ setuptools.setup(
         'hinawa-alesis-io-cui',
         'hinawa-bebob-parser',
         'hinawa-config-rom-printer',
-        'hinawa-dg00x-cui',
+        'hinawa-dg00x-common-cui',
         'hinawa-dice-common-cui',
         'hinawa-dice-extension-cui',
         'hinawa-fireworks-cui',
