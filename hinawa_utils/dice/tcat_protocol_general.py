@@ -3,7 +3,12 @@
 
 from struct import unpack
 
+import gi
+gi.require_version('Hinawa', '2.0')
+from gi.repository import Hinawa
+
 __all__ = ['TcatProtocolGeneral']
+
 
 class TcatProtocolGeneral():
     _BASE_ADDR = 0xffffe0000000
@@ -55,7 +60,12 @@ class TcatProtocolGeneral():
             count = length
             if count > self._MAXIMUM_TRX_LENGTH:
                 count = self._MAXIMUM_TRX_LENGTH
-            req.write(self._unit, addr, data[0:count])
+            if count == 4:
+                tcode = Hinawa.FwTcode.WRITE_QUADLET_REQUEST
+            else:
+                tcode = Hinawa.FwTcode.WRITE_BLOCK_REQUEST
+            req.transaction(self._unit.get_node(), tcode, addr, count,
+                            data[0:count])
             data = data[count:]
             length -= count
             addr += count
@@ -69,7 +79,14 @@ class TcatProtocolGeneral():
             count = length
             if count > self._MAXIMUM_TRX_LENGTH:
                 count = self._MAXIMUM_TRX_LENGTH
-            data.extend(req.read(self._unit, addr, count))
+            if count == 4:
+                tcode = Hinawa.FwTcode.READ_QUADLET_REQUEST
+            else:
+                tcode = Hinawa.FwTcode.READ_BLOCK_REQUEST
+            frames = bytearray(count)
+            frames = req.transaction(self._unit.get_node(), tcode, addr, count,
+                                     frames)
+            data.extend(frames)
             length -= count
             addr += count
 
@@ -146,7 +163,7 @@ class TcatProtocolGeneral():
     def _clock_select_transaction(self, data):
         quads = unpack('>I', data)
         offset = self._general_layout['global']['offset'] + 0x4c
-        self._unit.transact(self._BASE_ADDR + offset, quads, 0x00000020)
+        self._unit.transaction(self._BASE_ADDR + offset, quads, 0x00000020)
 
     # GLOBAL_CLOCK_SELECT: global:004c
     def get_supported_clock_sources(self):

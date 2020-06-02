@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # Copyright (C) 2018 Takashi Sakamoto
 
+from threading import Thread
+
 import gi
+gi.require_version('GLib', '2.0')
 gi.require_version('Hinawa', '2.0')
-from gi.repository import Hinawa
+from gi.repository import GLib, Hinawa
 
 from hinawa_utils.motu.motu_protocol_v1 import MotuProtocolV1
 from hinawa_utils.motu.motu_protocol_v2 import MotuProtocolV2
@@ -12,14 +15,16 @@ from hinawa_utils.motu.config_rom_parser import MotuConfigRomParser
 
 __all__ = ['MotuUnit']
 
+
 class MotuUnit(Hinawa.SndMotu):
     SUPPORTED_MODELS = {
-        0x102802: ('828',       MotuProtocolV1),
-        0x101800: ('828mk2',    MotuProtocolV2),
-        0x107800: ('Traveler',  MotuProtocolV2),
-        0x106800: ('828mk3',    MotuProtocolV3),    # FireWire only
-        0x100800: ('828mk3',    MotuProtocolV3),    # Hybrid
-        0x104800: ('AudioExpress', MotuProtocolV3),
+        0x000001: ('828',       MotuProtocolV1),
+        0x000002: ('828',       MotuProtocolV1),
+        0x000003: ('828mk2',    MotuProtocolV2),
+        0x000009: ('Traveler',  MotuProtocolV2),
+        0x000015: ('828mk3',    MotuProtocolV3),    # FireWire only
+        0x000035: ('828mk3',    MotuProtocolV3),    # Hybrid
+        0x000033: ('AudioExpress', MotuProtocolV3),
     }
 
     def __init__(self, path):
@@ -27,10 +32,22 @@ class MotuUnit(Hinawa.SndMotu):
         self.open(path)
         if self.get_property('type') != 7:
             raise ValueError('The character device is not for Motu unit.')
-        self.listen()
+
+        ctx = GLib.MainContext.new()
+        self.create_source().attach(ctx)
+        self.__unit_dispatcher = GLib.MainLoop.new(ctx, False)
+        self.__unit_th = Thread(target=lambda d: d.run(), args=(self.__unit_dispatcher, ))
+        self.__unit_th.start()
+
+        node = self.get_node()
+        ctx = GLib.MainContext.new()
+        node.create_source().attach(ctx)
+        self.__node_dispatcher = GLib.MainLoop.new(ctx, False)
+        self.__node_th = Thread(target=lambda d: d.run(), args=(self.__node_dispatcher, ))
+        self.__node_th.start()
 
         parser = MotuConfigRomParser()
-        info = parser.parse_rom(self.get_config_rom())
+        info = parser.parse_rom(self.get_node().get_config_rom())
 
         if info['model-id'] in self.SUPPORTED_MODELS:
             name, protocol = self.SUPPORTED_MODELS[info['model-id']]
@@ -38,6 +55,18 @@ class MotuUnit(Hinawa.SndMotu):
             self._protocol = protocol(self, False)
         else:
             raise OSError('Unsupported model')
+
+    def release(self):
+        self.__unit_dispatcher.quit()
+        self.__node_dispatcher.quit()
+        self.__unit_th.join()
+        self.__node_th.join()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, ex_type, ex_value, trace):
+        self.release()
 
     def get_sampling_rates(self):
         return self._protocol.get_supported_sampling_rates()
@@ -88,7 +117,8 @@ class MotuUnit(Hinawa.SndMotu):
 
     def get_opt_iface_mode(self, direction, index):
         if direction not in self._protocol.get_supported_opt_iface_directions():
-            raise ValueError('Invalid argument for direction of optical iface.')
+            raise ValueError(
+                'Invalid argument for direction of optical iface.')
 
         if index not in self._protocol.get_supported_opt_iface_indexes():
             raise ValueError('Invalid argument for index of optical iface.')

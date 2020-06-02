@@ -1,40 +1,58 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # Copyright (C) 2018 Takashi Sakamoto
 
+from threading import Thread
+
 import gi
+gi.require_version('GLib', '2.0')
 gi.require_version('Hinawa', '2.0')
-from gi.repository import Hinawa
+from gi.repository import GLib, Hinawa
 
 from hinawa_utils.dice.tcat_protocol_general import TcatProtocolGeneral
 from hinawa_utils.ta1394.config_rom_parser import Ta1394ConfigRomParser
 
 __all__ = ['DiceUnit']
 
+
 class DiceUnit(Hinawa.SndDice):
     def __init__(self, path):
-        if path.find('/dev/snd/hw') == 0:
-            super().__init__()
-            self.open(path)
-            if self.get_property('type') != 1:
-                raise ValueError('The character device is not for Dice unit')
-            self.listen()
-            self._on_juju = False
-        elif path.find('/dev/fw') == 0:
-            # Just using parent class.
-            super(Hinawa.FwUnit, self).__init__()
-            Hinawa.FwUnit.open(self, path)
-            Hinawa.FwUnit.listen(self)
-            self._on_juju = True
-        else:
-            raise ValueError('Invalid argument for character device')
+        super().__init__()
+        self.open(path)
+        if self.get_property('type') != 1:
+            raise ValueError('The character device is not for Dice unit')
+
+        ctx = GLib.MainContext.new()
+        self.create_source().attach(ctx)
+        self.__unit_dispatcher = GLib.MainLoop.new(ctx, False)
+        self.__unit_th = Thread(target=lambda d: d.run(), args=(self.__unit_dispatcher, ))
+        self.__unit_th.start()
+
+        node = self.get_node()
+        ctx = GLib.MainContext.new()
+        node.create_source().attach(ctx)
+        self.__node_dispatcher = GLib.MainLoop.new(ctx, False)
+        self.__node_th = Thread(target=lambda d: d.run(), args=(self.__node_dispatcher, ))
+        self.__node_th.start()
 
         parser = Ta1394ConfigRomParser()
-        info = parser.parse_rom(self.get_config_rom())
+        info = parser.parse_rom(self.get_node().get_config_rom())
         self.vendor_id = info['vendor-id']
         self.model_id = info['model-id']
 
         req = Hinawa.FwReq()
         self._protocol = TcatProtocolGeneral(self, req)
+
+    def release(self):
+        self.__unit_dispatcher.quit()
+        self.__node_dispatcher.quit()
+        self.__unit_th.join()
+        self.__node_th.join()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, ex_type, ex_value, trace):
+        self.release()
 
     def get_owner_addr(self):
         req = Hinawa.FwReq()
@@ -63,8 +81,6 @@ class DiceUnit(Hinawa.SndDice):
     def set_clock_source(self, source):
         if self.get_property('streaming'):
             raise RuntimeError('Packet streaming started.')
-        if self._on_juju:
-            raise RuntimeError('This operation is not supported withou ALSA.')
         req = Hinawa.FwReq()
         labels = self._protocol.get_clock_source_names()
         if source not in labels or source == 'Unused':
@@ -85,8 +101,6 @@ class DiceUnit(Hinawa.SndDice):
     def set_sampling_rate(self, rate):
         if self.get_property('streaming'):
             raise RuntimeError('Packet streaming started.')
-        if self._on_juju:
-            raise RuntimeError('This operation is not supported withou ALSA.')
         req = Hinawa.FwReq()
         self._protocol.write_sampling_rate(req, rate)
 

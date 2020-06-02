@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2018 Takashi Sakamoto
 
-from hinawa_utils.misc.cui_kit import CuiKit
+from hinawa_utils.misc.cli_kit import CliKit
 from hinawa_utils.tscm.tscm_console_unit import TscmConsoleUnit
+
 
 def handle_clock_source(unit, args):
     ops = ('set', 'get')
@@ -24,6 +25,7 @@ def handle_clock_source(unit, args):
     print('    SRC:    [{0}]'.format('|'.join(unit.supported_clock_sources)))
     return False
 
+
 def handle_sampling_rate(unit, args):
     ops = ('set', 'get')
     if len(args) > 0 and args[0] in ops:
@@ -41,11 +43,13 @@ def handle_sampling_rate(unit, args):
     print('    RATE:   [{0}]'.format('|'.join(rates)))
     return False
 
+
 def handle_firmware_versions(unit, args):
     info = unit.get_firmware_versions()
     for name, value in info.items():
         print('{0}: {1}'.format(name, value))
     return True
+
 
 def handle_routing(unit, args, cmd, labels, set_func, get_func):
     ops = ('set', 'get')
@@ -64,11 +68,13 @@ def handle_routing(unit, args, cmd, labels, set_func, get_func):
     print('    SRC:    [{0}]'.format('|'.join(labels)))
     return False
 
+
 def handle_coax_out_src(unit, args):
     return handle_routing(unit, args, 'coaxial-out-source',
                           unit.get_coax_out_src_labels(),
                           unit.set_coax_out_src,
                           unit.get_coax_out_src)
+
 
 def handle_opt_out_src(unit, args):
     return handle_routing(unit, args, 'optical-out-source',
@@ -76,11 +82,13 @@ def handle_opt_out_src(unit, args):
                           unit.set_opt_out_src,
                           unit.get_opt_out_src)
 
+
 def handle_stream_spdif_in_src(unit, args):
     return handle_routing(unit, args, 'stream-spdif-in-source',
                           unit.get_stream_spdif_in_src_labels(),
                           unit.set_stream_spdif_in_src,
                           unit.get_stream_spdif_in_src)
+
 
 def handle_input_threshold(unit, args):
     ops = ('set', 'get')
@@ -101,6 +109,7 @@ def handle_input_threshold(unit, args):
     print('    LEVEL:  [-inf, -90..0]')
     return True
 
+
 def handle_master_fader(unit, args):
     ops = ('set', 'get')
     modes = ('False', 'True')
@@ -118,6 +127,7 @@ def handle_master_fader(unit, args):
     print('    MODE:   [{0}]'.format('|'.join(modes)))
     return False
 
+
 def handle_bright_led(unit, args):
     if len(args) > 1:
         pos = int(args[0])
@@ -130,6 +140,7 @@ def handle_bright_led(unit, args):
     print('    STATE:  [{0}]'.format('|'.join(unit.supported_led_status)))
     return False
 
+
 cmds = {
     'clock-source':         handle_clock_source,
     'sampling-rate':        handle_sampling_rate,
@@ -141,9 +152,9 @@ cmds = {
     'bright-led':           handle_bright_led,
 }
 
-fullpath = CuiKit.seek_snd_unit_path()
+fullpath = CliKit.seek_snd_unit_path()
 if fullpath:
-    unit = TscmConsoleUnit(fullpath)
-    if unit.model_name == 'FW-1884':
-        cmds['optical-out-source'] = handle_opt_out_src
-    CuiKit.dispatch_command(unit, cmds)
+    with TscmConsoleUnit(fullpath) as unit:
+        if unit.model_name == 'FW-1884':
+            cmds['optical-out-source'] = handle_opt_out_src
+        CliKit.dispatch_command(unit, cmds)

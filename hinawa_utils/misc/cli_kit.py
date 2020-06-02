@@ -4,14 +4,17 @@
 import sys
 import string
 from pathlib import Path
+from signal import SIGINT
 
 import gi
+gi.require_version('GLib', '2.0')
 gi.require_version('Hinawa', '2.0')
-from gi.repository import Hinawa
+from gi.repository import GLib, Hinawa
 
-__all__ = ['CuiKit']
+__all__ = ['CliKit']
 
-class CuiKit():
+
+class CliKit():
     @staticmethod
     def _seek_snd_unit_from_guid(guid):
         for fullpath in Path('/dev/snd').glob('hw*'):
@@ -69,9 +72,17 @@ class CuiKit():
         return None
 
     @classmethod
+    def handle_unix_signal(cls, unit):
+        del unit
+
+    @classmethod
     def dispatch_command(cls, unit, cmds):
         args = sys.argv
         if len(args) > 2:
+            # Install signal handler to cancel event dispatcher.
+            GLib.unix_signal_add(GLib.PRIORITY_HIGH, SIGINT,
+                                 cls.handle_unix_signal, unit)
+
             if args[2] in cmds:
                 cmd = args[2]
                 return cmds[cmd](unit, args[3:])
@@ -90,12 +101,12 @@ class CuiKit():
                             continue
                         if cmd not in cmds:
                             print('Invalid command in {0}: {1}: {2}'.format(
-                                                        str(path), i, cmd))
+                                str(path), i, cmd))
                             return False
 
                         if not cmds[cmd](unit, args[1:]):
                             print('Invalid arguments in {0}:{1}: {2}'.format(
-                                                        str(path), i, cmd))
+                                str(path), i, cmd))
                             return False
                 return True
         cls._dump_commands(cmds)

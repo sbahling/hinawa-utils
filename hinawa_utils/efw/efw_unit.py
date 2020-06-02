@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # Copyright (C) 2018 Takashi Sakamoto
 
+from threading import Thread
+
 import gi
+gi.require_version('GLib', '2.0')
 gi.require_version('Hinawa', '2.0')
-from gi.repository import Hinawa
+from gi.repository import GLib, Hinawa
 
 from hinawa_utils.efw.transactions import EftInfo
 from hinawa_utils.efw.transactions import EftHwctl
@@ -16,13 +19,39 @@ from math import log10
 
 __all__ = ['EfwUnit']
 
+
 class EfwUnit(Hinawa.SndEfw):
     def __init__(self, path):
         super().__init__()
         self.open(path)
-        self.listen()
+
+        ctx = GLib.MainContext.new()
+        self.create_source().attach(ctx)
+        self.__unit_dispatcher = GLib.MainLoop.new(ctx, False)
+        self.__unit_th = Thread(target=lambda d: d.run(), args=(self.__unit_dispatcher, ))
+        self.__unit_th.start()
+
+        node = self.get_node()
+        ctx = GLib.MainContext.new()
+        node.create_source().attach(ctx)
+        self.__node_dispatcher = GLib.MainLoop.new(ctx, False)
+        self.__node_th = Thread(target=lambda d: d.run(), args=(self.__node_dispatcher, ))
+        self.__node_th.start()
+
         self.info = EftInfo.get_spec(self)
         self._fixup_info()
+
+    def release(self):
+        self.__unit_dispatcher.quit()
+        self.__node_dispatcher.quit()
+        self.__unit_th.join()
+        self.__node_th.join()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, ex_type, ex_value, trace):
+        self.release()
 
     def _fixup_info(self):
         # Mapping for channels on tx stream is supported by Onyx1200F only.
@@ -46,6 +75,7 @@ class EfwUnit(Hinawa.SndEfw):
             return 0x00000000
         else:
             return int(0x01000000 * pow(10, db / 20))
+
     @staticmethod
     def _calcurate_vol_to_db(vol):
         if vol == 0:
@@ -58,6 +88,7 @@ class EfwUnit(Hinawa.SndEfw):
 
     def set_clock_state(self, rate, src):
         EftHwctl.set_clock(self, rate, src, 0)
+
     def get_clock_state(self):
         return EftHwctl.get_clock(self)
 
@@ -65,10 +96,12 @@ class EfwUnit(Hinawa.SndEfw):
         if name not in EftHwctl.SUPPORTED_BOX_STATES:
             raise ValueError('Invalid argument for name of box state')
         return EftHwctl.SUPPORTED_BOX_STATES[name]
+
     def set_box_states(self, name, state):
         states = EftHwctl.get_box_states(self)
         states[name] = state
         EftHwctl.set_box_states(self, states)
+
     def get_box_states(self):
         states = {}
         state_all = EftHwctl.get_box_states(self)
@@ -95,25 +128,30 @@ class EfwUnit(Hinawa.SndEfw):
             raise ValueError('Invalid argument for physical output channel')
         vol = self._calcurate_vol_from_db(db)
         EftPhysOutput.set_param(self, 'gain', ch, vol)
+
     def get_phys_out_gain(self, ch):
         if ch >= len(self.info['phys-outputs']):
             raise ValueError('Invalid argument for physical output channel')
         vol = EftPhysOutput.get_param(self, 'gain', ch)
         return self._calcurate_vol_to_db(vol)
+
     def set_phys_out_mute(self, ch, val):
         if ch >= len(self.info['phys-outputs']):
             raise ValueError('Invalid argument for physical output channel')
         EftPhysOutput.set_param(self, 'mute', ch, val)
+
     def get_phys_out_mute(self, ch):
         if ch >= len(self.info['phys-outputs']):
             raise ValueError('Invalid argument for physical output channel')
         return EftPhysOutput.get_param(self, 'mute', ch)
+
     def set_phys_out_nominal(self, ch, val):
         if not self.info['features']['nominal-output']:
             raise RuntimeError('Not supported by this model')
         if ch >= len(self.info['phys-outputs']):
             raise ValueError('Invalid argument for physical output channel')
         EftPhysOutput.set_param(self, 'nominal', ch, val)
+
     def get_phys_out_nominal(self, ch):
         if not self.info['features']['nominal-output']:
             raise RuntimeError('Not supported by this model')
@@ -127,6 +165,7 @@ class EfwUnit(Hinawa.SndEfw):
         if ch >= len(self.info['phys-inputs']):
             raise ValueError('Invalid argument for physical input channel')
         EftPhysInput.set_param(self, 'nominal', ch, val)
+
     def get_phys_in_nominal(self, ch):
         if not self.info['features']['nominal-input']:
             raise RuntimeError('Not supported by this model')
@@ -139,23 +178,28 @@ class EfwUnit(Hinawa.SndEfw):
             raise ValueError('Invalid argument for playback channel')
         vol = self._calcurate_vol_from_db(db)
         EftPlayback.set_param(self, 'gain', ch, vol)
+
     def get_playback_gain(self, ch):
         if ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
         vol = EftPlayback.get_param(self, 'gain', ch)
         return self._calcurate_vol_to_db(vol)
+
     def set_playback_mute(self, ch, val):
         if ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
         EftPlayback.set_param(self, 'mute', ch, val)
+
     def get_playback_mute(self, ch):
         if ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
         return EftPlayback.get_param(self, 'mute', ch)
+
     def set_playback_solo(self, ch, val):
         if ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
         EftPlayback.set_param(self, 'solo', ch, val)
+
     def get_playback_solo(self, ch):
         if ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
@@ -168,6 +212,7 @@ class EfwUnit(Hinawa.SndEfw):
             raise ValueError('Invalid argument for playback channel')
         vol = self._calcurate_vol_from_db(db)
         EftMonitor.set_param(self, 'gain', in_ch, out_ch, vol)
+
     def get_monitor_gain(self, in_ch, out_ch):
         if in_ch >= self.info['capture-channels']:
             raise ValueError('Invalid argument for capture channel')
@@ -175,36 +220,42 @@ class EfwUnit(Hinawa.SndEfw):
             raise ValueError('Invalid argument for playback channel')
         vol = EftMonitor.get_param(self, 'gain', in_ch, out_ch)
         return self._calcurate_vol_to_db(vol)
+
     def set_monitor_mute(self, in_ch, out_ch, val):
         if in_ch >= self.info['capture-channels']:
             raise ValueError('Invalid argument for capture channel')
         if out_ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
         EftMonitor.set_param(self, 'mute', in_ch, out_ch, val)
+
     def get_monitor_mute(self, in_ch, out_ch):
         if in_ch >= self.info['capture-channels']:
             raise ValueError('Invalid argument for capture channel')
         if out_ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
         return EftMonitor.get_param(self, 'mute', in_ch, out_ch)
+
     def set_monitor_solo(self, in_ch, out_ch, val):
         if in_ch >= self.info['capture-channels']:
             raise ValueError('Invalid argument for capture channel')
         if out_ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
         EftMonitor.set_param(self, 'solo', in_ch, out_ch, val)
+
     def get_monitor_solo(self, in_ch, out_ch):
         if in_ch >= self.info['capture-channels']:
             raise ValueError('Invalid argument for capture channel')
         if out_ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
         return EftMonitor.get_param(self, 'solo', in_ch, out_ch)
+
     def set_monitor_pan(self, in_ch, out_ch, val):
         if in_ch >= self.info['capture-channels']:
             raise ValueError('Invalid argument for capture channel')
         if out_ch >= self.info['playback-channels']:
             raise ValueError('Invalid argument for playback channel')
         EftMonitor.set_param(self, 'pan', in_ch, out_ch, val)
+
     def get_monitor_pan(self, in_ch, out_ch):
         if in_ch >= self.info['capture-channels']:
             raise ValueError('Invalid argument for capture channel')
@@ -217,6 +268,7 @@ class EfwUnit(Hinawa.SndEfw):
         for i in range(1, self.info['playback-channels'], 2):
             labels.append('mixer-{0}/{1}'.format(i, i + 1))
         return labels
+
     def set_control_room_mirroring(self, source):
         if self.info['features']['control-room-mirroring'] is False:
             raise RuntimeError('Not supported by this model')
@@ -225,6 +277,7 @@ class EfwUnit(Hinawa.SndEfw):
             raise ValueError('Invalid argument for source')
         val = labels.index(source) * 2
         EftIoconf.set_control_room_mirroring(self, val)
+
     def get_control_room_mirroring(self):
         if self.info['features']['control-room-mirroring'] is False:
             raise RuntimeError('Not supported by this model')
@@ -238,10 +291,12 @@ class EfwUnit(Hinawa.SndEfw):
             if mode in self.info['features'] and self.info['features'][mode]:
                 labels.append(mode)
         return labels
+
     def set_digital_input_mode(self, mode):
         if self.info['features'][mode] is False:
             raise RuntimeError('Not supported by this model')
         EftIoconf.set_digital_input_mode(self, mode)
+
     def get_digital_input_mode(self):
         return EftIoconf.get_digital_input_mode(self)
 
@@ -249,16 +304,19 @@ class EfwUnit(Hinawa.SndEfw):
         if self.info['features']['phantom-powering'] is False:
             raise RuntimeError('Not supported by this model')
         EftIoconf.set_phantom_powering(self, state)
+
     def get_phantom_powering(self):
         if self.info['features']['phantom-powering'] is False:
             raise RuntimeError('Not supported by this model')
         return EftIoconf.get_phantom_powering(self)
+
     def set_stream_mapping(self, rx_maps, tx_maps):
         if rx_maps and self.info['features']['rx-mapping'] is False:
             raise RuntimeError('Not supported by this model')
         if tx_maps and self.info['features']['tx-mapping'] is False:
             raise RuntimeError('Not supported by this model')
         EftIoconf.set_stream_mapping(self, rx_maps, tx_maps)
+
     def get_stream_mapping(self):
         if self.info['features']['rx-mapping'] is False and \
            self.info['features']['tx-mapping'] is False:

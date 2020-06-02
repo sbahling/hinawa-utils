@@ -7,11 +7,13 @@ from gi.repository import Hinawa
 
 __all__ = ['AvcGeneral', 'AvcConnection']
 
+
 class AvcGeneral():
     SUBUNIT_TYPES = ('monitor', 'audio', 'printer', 'disc',
                      'tape-recorder-player', 'tuner', 'ca', 'camera',
                      'reserved', 'panel', 'bulletin-board', 'camera storate',
                      'music')
+    MAXIMUM_SUBUNIT_PAGE = 0x7
 
     @classmethod
     def command_control(cls, fcp, cmd):
@@ -19,8 +21,9 @@ class AvcGeneral():
             raise ValueError('Invalid argument for FwFcp')
         if cmd[0] != 0x00:
             raise ValueError('Invalid command code for control')
-        params = fcp.transact(cmd)
-        if   params[0] == 0x08:
+        params = [0] * 256
+        params = fcp.transaction(cmd, params)
+        if params[0] == 0x08:
             raise OSError('Not implemented')
         elif params[0] == 0x0a:
             raise OSError('Rejected')
@@ -34,8 +37,9 @@ class AvcGeneral():
             raise ValueError('Invalid argument for FwFcp')
         if cmd[0] != 0x01:
             raise ValueError('Invalid command code for status')
-        params = fcp.transact(cmd)
-        if   params[0] == 0x08:
+        params = [0] * 256
+        params = fcp.transaction(cmd, params)
+        if params[0] == 0x08:
             raise OSError('Not implemented')
         elif params[0] == 0x0a:
             raise OSError('Rejected')
@@ -51,8 +55,9 @@ class AvcGeneral():
             raise ValueError('Invalid argument for FwFcp')
         if cmd[0] != 0x02:
             raise ValueError('Invalid command code for inquire')
-        params = fcp.transact(cmd)
-        if   params[0] == 0x08:
+        params = [0] * 256
+        params = fcp.transaction(cmd, params)
+        if params[0] == 0x08:
             raise OSError('Not Implemented')
         elif params[0] != 0x0c:
             raise OSError('Unknown status')
@@ -75,9 +80,10 @@ class AvcGeneral():
         info['company-id'] = (params[5], params[6], params[7])
         return info
 
+    # NOTE: at present, this implementation doesn't support extension code.
     @classmethod
     def get_subunit_info(cls, fcp, page):
-        if page > 7:
+        if page > cls.MAXIMUM_SUBUNIT_PAGE:
             raise ValueError('Invalid argument for page number')
         args = bytearray()
         args.append(0x01)
@@ -89,9 +95,15 @@ class AvcGeneral():
         args.append(0xff)
         args.append(0xff)
         params = cls.command_status(fcp, args)
-        info = {}
-        info['subunit-type'] = cls.SUBUNIT_TYPES[params[4] >> 3]
-        info['maximum-id'] = params[4] & 0x07
+        info = []
+        for code in params[4:8]:
+            if code == 0xff:
+                continue
+            entry = {
+                'type':         cls.SUBUNIT_TYPES[code >> 3],
+                'maximum-id':   code & 0x07,
+            }
+            info.append(entry)
         # ignoring extended_subunit_type and extended_subunit_ID
         return info
 
@@ -109,7 +121,8 @@ class AvcGeneral():
             args.append(b)
         for b in deps:
             args.append(b)
-        cls.command_control(fcp, args)
+        params = cls.command_control(fcp, args)
+        return params[6:]
 
     @classmethod
     def get_vendor_dependent(cls, fcp, company_ids, deps):
@@ -128,6 +141,7 @@ class AvcGeneral():
         params = cls.command_status(fcp, args)
         return params[6:]
 
+
 class AvcConnection():
     PLUG_DIRECTION = ('output', 'input')
     SAMPLING_RATES = (32000, 44100, 48000, 88200, 96000, 176400, 192000)
@@ -145,11 +159,11 @@ class AvcConnection():
         args.append(0xff)
         params = AvcGeneral.command_status(fcp, args)
         return {'isoc': {
-                    'input':    params[4],
-                    'output':   params[5]},
-                'external': {
-                    'input':    params[6],
-                    'output':   params[7]}}
+            'input':    params[4],
+            'output':   params[5]},
+            'external': {
+            'input':    params[6],
+            'output':   params[7]}}
 
     @classmethod
     def get_subunit_plug_info(cls, fcp, subunit_type, subunit_id):
@@ -159,7 +173,8 @@ class AvcConnection():
             raise ValueError('Invalid argument for subunit id')
         args = bytearray()
         args.append(0x01)
-        args.append((AvcGeneral.SUBUNIT_TYPES.index(subunit_type) << 3) | subunit_id)
+        args.append((AvcGeneral.SUBUNIT_TYPES.index(
+            subunit_type) << 3) | subunit_id)
         args.append(0x02)
         args.append(0x00)
         args.append(0xff)

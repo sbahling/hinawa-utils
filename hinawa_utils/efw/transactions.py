@@ -15,6 +15,8 @@ __all__ = ['EftInfo', 'EftFlash', 'EftTransmit', 'EftHwctl', 'EftPhysOutput',
 #
 # Category No.0, for hardware information
 #
+
+
 class EftInfo():
     SUPPORTED_MODELS = (
         'Audiofire2',
@@ -146,7 +148,8 @@ class EftInfo():
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(0, cmd, args)
+        params = [0] * 256
+        return unit.transaction(0, cmd, args, params)
 
     @classmethod
     def get_spec(cls, unit):
@@ -213,7 +216,7 @@ class EftInfo():
     def set_resp_addr(cls, unit, addr):
         args = array('I')
         args.append((addr >> 24) & 0xffffffff)
-        args.append(addr         & 0xffffffff)
+        args.append(addr & 0xffffffff)
         cls._execute_command(unit, 2, args)
 
     # 64 quads can be read at once.
@@ -322,17 +325,20 @@ class EftInfo():
     def _get_literal_version(val):
         return '{0}.{1}.{2}'.format((val >> 24) & 0xff,
                                     (val >> 16) & 0xff,
-                                    (val >>  8) & 0xff)
+                                    (val >> 8) & 0xff)
 
 #
 # Category No.1, for flash commands
 #
+
+
 class EftFlash():
     @staticmethod
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(1, cmd, args)
+        params = [0] * 256
+        return unit.transaction(1, cmd, args, params)
 
     @classmethod
     def erase(cls, unit, offset):
@@ -345,7 +351,12 @@ class EftFlash():
         args = array('I')
         args.append(offset)
         args.append(quadlets)
-        return cls._execute_command(unit, 1, args)
+        resp = cls._execute_command(unit, 1, args)
+        if resp[0] != offset:
+            raise OSError('Unexpected parameter for offset in response.')
+        if resp[1] != quadlets:
+            raise OSError('Unexpected parameter for quadlets in response.')
+        return resp[2:]
 
     @classmethod
     def write_block(cls, unit, offset, data):
@@ -378,6 +389,8 @@ class EftFlash():
 #
 # Category No.2, for transmission control commands
 #
+
+
 class EftTransmit():
     SUPPORTED_MODES = ('windows', 'iec61883-6')
     SUPPORTED_PLAYBACK_DROPS = (1, 2, 4)
@@ -389,7 +402,8 @@ class EftTransmit():
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(2, cmd, args)
+        params = [0] * 256
+        return unit.transaction(2, cmd, args, params)
 
     @classmethod
     def set_mode(cls, unit, mode):
@@ -415,12 +429,15 @@ class EftTransmit():
         args.append(playback_drop)
         args.append(record_stretch_ratio)
         args.append(serial_bps)
-        args.append(cls.SUPPORTED_SERIAL_DATA_FORMATS.index(serial_data_format))
+        args.append(cls.SUPPORTED_SERIAL_DATA_FORMATS.index(
+            serial_data_format))
         cls._execute_command(unit, 4, args)
 
 #
 # Category No.3, for hardware control commands
 #
+
+
 class EftHwctl():
     SUPPORTED_BOX_STATES = {
         # name                  clear           set
@@ -457,7 +474,8 @@ class EftHwctl():
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(3, cmd, args)
+        params = [0] * 256
+        return unit.transaction(3, cmd, args, params)
 
     @classmethod
     def set_clock(cls, unit, rate, source, reset):
@@ -489,7 +507,7 @@ class EftHwctl():
         for name, state in states.items():
             if name not in cls.SUPPORTED_BOX_STATES:
                 raise ValueError('Invalid value in box states')
-            shift  = cls.__BOX_STATE_POSITIONS[name]
+            shift = cls.__BOX_STATE_POSITIONS[name]
             if cls.SUPPORTED_BOX_STATES[name].index(state) is 0:
                 mask_clear |= (1 << shift)
             else:
@@ -525,6 +543,8 @@ class EftHwctl():
 #
 # Category No.4, for physical output multiplexer commands
 #
+
+
 class EftPhysOutput():
     OPERATIONS = ('gain', 'mute', 'nominal')
 
@@ -532,7 +552,8 @@ class EftPhysOutput():
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(4, cmd, args)
+        params = [0] * 256
+        return unit.transaction(4, cmd, args, params)
 
     @classmethod
     def set_param(cls, unit, operation, channel, value):
@@ -575,6 +596,8 @@ class EftPhysOutput():
 #
 # Category No.5, for physical input multiplexer commands
 #
+
+
 class EftPhysInput():
     OPERATIONS = ('nominal')
 
@@ -582,7 +605,8 @@ class EftPhysInput():
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(5, cmd, args)
+        params = [0] * 256
+        return unit.transaction(5, cmd, args, params)
 
     @classmethod
     def set_param(cls, unit, operation, channel, value):
@@ -613,6 +637,8 @@ class EftPhysInput():
 #
 # Category No.6, for playback stream multiplexer commands
 #
+
+
 class EftPlayback():
     OPERATIONS = ('gain', 'mute', 'solo')
 
@@ -620,7 +646,8 @@ class EftPlayback():
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(6, cmd, args)
+        params = [0] * 256
+        return unit.transaction(6, cmd, args, params)
 
     @classmethod
     def set_param(cls, unit, operation, channel, value):
@@ -656,6 +683,7 @@ class EftPlayback():
         params = cls._execute_command(unit, cmd, args)
         return params[1]
 
+
 class EftCapture():
     OPERATIONS = ()
 
@@ -663,11 +691,14 @@ class EftCapture():
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(7, cmd, args)
+        params = [0] * 256
+        return unit.transaction(7, cmd, args, params)
 
 #
 # Category No.8, for input monitoring multiplexer commands
 #
+
+
 class EftMonitor():
     OPERATIONS = ('gain', 'mute', 'solo', 'pan')
 
@@ -675,7 +706,8 @@ class EftMonitor():
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(8, cmd, args)
+        params = [0] * 256
+        return unit.transaction(8, cmd, args, params)
 
     @classmethod
     def set_param(cls, unit, operation, in_ch, out_ch, value):
@@ -722,6 +754,8 @@ class EftMonitor():
 #
 # Category No.9, for input/output configuration commands
 #
+
+
 class EftIoconf():
     # NOTE: use the same strings in features of EftInfo.
     DIGITAL_INPUT_MODES = ('spdif-coax', 'aesebu-xlr', 'spdif-opt', 'adat-opt')
@@ -730,7 +764,8 @@ class EftIoconf():
     def _execute_command(unit, cmd, args):
         if not isinstance(unit, Hinawa.SndEfw):
             raise ValueError('Invalid argument for SndEfw')
-        return unit.transact(9, cmd, args)
+        params = [0] * 256
+        return unit.transaction(9, cmd, args, params)
 
     @classmethod
     def set_control_room_mirroring(cls, unit, output_pair):

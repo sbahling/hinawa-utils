@@ -2,75 +2,85 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2018 Takashi Sakamoto
 
-from hinawa_utils.misc.cui_kit import CuiKit
+from hinawa_utils.misc.cli_kit import CliKit
 from hinawa_utils.oxfw.tascam_fireone import TascamFireone
 
 # Helper functions
+
+
 def handle_current_status(unit, args):
     print('Current status:')
     print('  Packet Streaming:')
     print('    running:          {0}'.format(unit.get_property('streaming')))
     fmts = unit.get_current_stream_formats()
-    print('    sampling-rate:    {0}'.format(fmts['playback']['sampling-rate']))
+    print(
+        '    sampling-rate:    {0}'.format(fmts['playback']['sampling-rate']))
     print('  Control surface:')
-    print('    display-mode:     {0}'.format(unit.display_get_mode()))
-    print('    control-mode:     {0}'.format(unit.control_get_mode()))
-    print('    input-mode:       {0}'.format(unit.input_get_mode()))
+    print('    display-mode:     {0}'.format(unit.get_display_mode()))
+    print('    control-mode:     {0}'.format(unit.get_control_mode()))
+    print('    input-mode:       {0}'.format(unit.get_input_mode()))
     print('ASIC information:')
     print('  type:             {0}'.format(unit.hw_info['asic-type']))
     print('  ID:               {0}'.format(unit.hw_info['asic-id']))
     print('  firmware version: {0}'.format(unit.hw_info['firmware-version']))
     print('TASCAM firmware information:')
-    print('  version:          {0}'.format(unit.firmware_get_version()))
+    print('  version:          {0}'.format(unit.get_firmware_version()))
     return True
+
 
 def handle_display_mode(unit, args):
     ops = ('set', 'get')
+    modes = unit.get_display_mode_labels()
     if len(args) > 0 and args[0] in ops:
         op = args[0]
-        if op == ops[0] and len(args) == 2:
+        if op == ops[0] and len(args) == 2 and args[1] in modes:
             mode = args[1]
-            unit.display_set_mode(mode)
+            unit.set_display_mode(mode)
         else:
-            print(unit.display_get_mode())
+            print(unit.get_display_mode())
         return True
     print('Arguments for display-mode command:')
     print('  display-mode OPERATION [MODE]')
     print('    OPERATION: {0}'.format(', '.join(ops)))
-    print('    MODE:     {0}'.format(', '.join(unit.display_modes)))
+    print('    MODE:     {0}'.format(', '.join(modes)))
     return False
+
 
 def handle_control_mode(unit, args):
     ops = ('set', 'get')
+    modes = unit.get_control_mode_labels()
     if len(args) > 0 and args[0] in ops:
         op = args[0]
-        if op == ops[0] and len(args) == 2:
+        if op == ops[0] and len(args) == 2 and args[1] in modes:
             mode = args[1]
-            unit.control_set_mode(mode)
+            unit.set_control_mode(mode)
         else:
-            print(unit.control_get_mode())
+            print(unit.get_control_mode())
         return True
     print('Arguments for control-mode command:')
     print('  control-mode OPERATION [MODE]')
     print('    OPERATION: {0}'.format(', '.join(ops)))
-    print('    MODE:     {0}'.format(', '.join(unit.control_modes)))
+    print('    MODE:     {0}'.format(', '.join(modes)))
     return False
+
 
 def handle_input_mode(unit, args):
     ops = ('set', 'get')
+    modes = unit.get_input_mode_labels()
     if len(args) > 0 and args[0] in ops:
         op = args[0]
-        if op == ops[0] and len(args) == 2:
+        if op == ops[0] and len(args) == 2 and args[1] in modes:
             mode = args[1]
-            unit.input_set_mode(mode)
+            unit.set_input_mode(mode)
         else:
-            print(unit.input_get_mode())
+            print(unit.get_input_mode())
         return True
     print('Arguments for input-mode command:')
     print('  input-mode OPERATION [MODE]')
     print('    OPERATION: {0}'.format(', '.join(ops)))
-    print('    MODE:     {0}'.format(', '.join(unit.input_modes)))
+    print('    MODE:     {0}'.format(', '.join(modes)))
     return False
+
 
 def handle_sampling_rate(unit, args):
     ops = ('set', 'get')
@@ -108,6 +118,7 @@ def handle_sampling_rate(unit, args):
     print('    MODE:     {0}'.format(', '.join(rates)))
     return True
 
+
 cmds = {
     'current-status':   handle_current_status,
     'display-mode':     handle_display_mode,
@@ -116,7 +127,7 @@ cmds = {
     'sampling-rate':    handle_sampling_rate,
 }
 
-fullpath = CuiKit.seek_snd_unit_path()
+fullpath = CliKit.seek_snd_unit_path()
 if fullpath:
-    unit = TascamFireone(fullpath)
-    CuiKit.dispatch_command(unit, cmds)
+    with TascamFireone(fullpath) as unit:
+        CliKit.dispatch_command(unit, cmds)

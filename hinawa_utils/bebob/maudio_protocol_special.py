@@ -15,6 +15,7 @@ from hinawa_utils.ta1394.audio import AvcAudio
 
 __all__ = ['MaudioProtocolSpecial']
 
+
 class MaudioProtocolSpecial(MaudioProtocolAbstract):
     BASE_ADDR = 0xffc700700000
     __IDS = (
@@ -75,46 +76,46 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
         if not self.__path.exists() or not self.__path.is_file():
             # This is initial value.
             cache = [
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from stream 1/2
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from stream 3/4
-                0x00, 0x00, 0x00, 0x00, # volume of outputs to analog 1/2
-                0x00, 0x00, 0x00, 0x00, # volume of outputs to analog 3/4
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from analog 1/2
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from analog 3/4
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from analog 5/6
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from analog 7/8
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from spdif 1/2
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from adat 1/2
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from adat 3/4
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from adat 5/6
-                0x00, 0x00, 0x00, 0x00, # gain of inputs from adat 7/8
-                0x00, 0x00, 0x00, 0x00, # volume of outputs to aux 1/2
-                0x00, 0x00, 0x00, 0x00, # volume of outputs to headphone 1/2
-                0x00, 0x00, 0x00, 0x00, # volume of outputs to headophone 3/4
-                0x7F, 0xFE, 0x80, 0x00, # balance of inputs from analog 1/2
-                0x7F, 0xFE, 0x80, 0x00, # balance of inputs from analog 3/4
-                0x7F, 0xFE, 0x80, 0x00, # balance of inputs from analog 5/6
-                0x7F, 0xFE, 0x80, 0x00, # balance of inputs from analog 7/8
-                0x7F, 0xFE, 0x80, 0x00, # balance of inputs from spdif 1/2
-                0x7F, 0xFE, 0x80, 0x00, # balance of inputs from adat 1/2
-                0x7F, 0xFE, 0x80, 0x00, # balance of inputs from adat 3/4
-                0x7F, 0xFE, 0x80, 0x00, # balance of inputs from adat 5/6
-                0x7F, 0xFE, 0x80, 0x00, # balance of inputs from adat 7/8
-                0x80, 0x00, 0x80, 0x00, # inputs of stream 1/2 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of stream 3/4 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of analog 1/2 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of analog 3/4 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of analog 5/6 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of analog 7/8 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of spdif 1/2 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of adat 1/2 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of adat 3/4 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of adat 5/6 to aux
-                0x80, 0x00, 0x80, 0x00, # inputs of adat 7/8 to aux
-                0x00, 0x00, 0x00, 0x00, # inputs of analog/digital for mixer
-                0x00, 0x00, 0x00, 0x09, # inputs of stream for mixer
-                0x00, 0x02, 0x00, 0x01, # source for headphone out 1/2 and 3/4
-                0x00, 0x00, 0x00, 0x00] # source for analog out 1/2 and 3/4
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from stream 1/2
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from stream 3/4
+                0x00, 0x00, 0x00, 0x00,  # volume of outputs to analog 1/2
+                0x00, 0x00, 0x00, 0x00,  # volume of outputs to analog 3/4
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from analog 1/2
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from analog 3/4
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from analog 5/6
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from analog 7/8
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from spdif 1/2
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from adat 1/2
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from adat 3/4
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from adat 5/6
+                0x00, 0x00, 0x00, 0x00,  # gain of inputs from adat 7/8
+                0x00, 0x00, 0x00, 0x00,  # volume of outputs to aux 1/2
+                0x00, 0x00, 0x00, 0x00,  # volume of outputs to headphone 1/2
+                0x00, 0x00, 0x00, 0x00,  # volume of outputs to headophone 3/4
+                0x7F, 0xFE, 0x80, 0x00,  # balance of inputs from analog 1/2
+                0x7F, 0xFE, 0x80, 0x00,  # balance of inputs from analog 3/4
+                0x7F, 0xFE, 0x80, 0x00,  # balance of inputs from analog 5/6
+                0x7F, 0xFE, 0x80, 0x00,  # balance of inputs from analog 7/8
+                0x7F, 0xFE, 0x80, 0x00,  # balance of inputs from spdif 1/2
+                0x7F, 0xFE, 0x80, 0x00,  # balance of inputs from adat 1/2
+                0x7F, 0xFE, 0x80, 0x00,  # balance of inputs from adat 3/4
+                0x7F, 0xFE, 0x80, 0x00,  # balance of inputs from adat 5/6
+                0x7F, 0xFE, 0x80, 0x00,  # balance of inputs from adat 7/8
+                0x80, 0x00, 0x80, 0x00,  # inputs of stream 1/2 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of stream 3/4 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of analog 1/2 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of analog 3/4 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of analog 5/6 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of analog 7/8 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of spdif 1/2 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of adat 1/2 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of adat 3/4 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of adat 5/6 to aux
+                0x80, 0x00, 0x80, 0x00,  # inputs of adat 7/8 to aux
+                0x00, 0x00, 0x00, 0x00,  # inputs of analog/digital for mixer
+                0x00, 0x00, 0x00, 0x09,  # inputs of stream for mixer
+                0x00, 0x02, 0x00, 0x01,  # source for headphone out 1/2 and 3/4
+                0x00, 0x00, 0x00, 0x00]  # source for analog out 1/2 and 3/4
         else:
             cache = bytearray(160)
             with self.__path.open(mode='r') as f:
@@ -128,8 +129,13 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
         count = 0
         req = Hinawa.FwReq()
         while True:
+            if len(data) == 4:
+                tcode = Hinawa.FwTcode.WRITE_QUADLET_REQUEST
+            else:
+                tcode = Hinawa.FwTcode.WRITE_BLOCK_REQUEST
             try:
-                req.write(self.unit, self.BASE_ADDR + offset, data)
+                req.transaction(self.unit.get_node(), tcode,
+                                self.BASE_ADDR + offset, len(data), data)
                 break
             except Exception as e:
                 if count > 10:
@@ -148,6 +154,7 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
             raise ValueError('Invalid argument for offset on address space')
         data = AvcAudio.build_data_from_db(db)
         self.__write_data(offset, data)
+
     def __get_volume(self, offset):
         if offset > len(self._cache):
             raise ValueError('Invalid argument for offset on address space')
@@ -155,6 +162,7 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
 
     def get_input_labels(self):
         return self.__INPUT_LABELS
+
     def __get_input_gain_offset(self, target, ch):
         if target not in self.__INPUT_LABELS:
             raise ValueError('invalid argument for input stereo pair')
@@ -164,9 +172,11 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
         if offset >= 8:
             offset += 8
         return offset + ch * 2
+
     def set_input_gain(self, target, ch, db):
         offset = self.__get_input_gain_offset(target, ch)
         self.__set_volume(offset, db)
+
     def get_input_gain(self, target, ch):
         offset = self.__get_input_gain_offset(target, ch)
         return self.__get_volume(offset)
@@ -178,12 +188,14 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
                 continue
             labels.append(label)
         return labels
+
     def set_input_balance(self, target, ch, balance):
         if target not in self.__INPUT_LABELS:
             raise ValueError('invalid argument for input stereo pair')
         offset = (self.__INPUT_LABELS.index(target) - 2 + 16) * 4 + ch * 2
         data = AvcAudio.build_data_from_db(balance)
         self.__write_data(offset, data)
+
     def get_input_balance(self, target, ch):
         if target not in self.__INPUT_LABELS:
             raise ValueError('invalid argument for input stereo pair')
@@ -193,15 +205,18 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
 
     def get_output_labels(self):
         return self.__OUTPUT_LABELS
+
     def __set_output_volume_offset(self, target, ch):
         if target not in self.__OUTPUT_LABELS:
             raise ValueError('invalid argument for output stereo pair')
         if ch > 1:
             raise ValueError('Invalid argument for stereo pair channel')
         return 8 + self.__OUTPUT_LABELS.index(target) * 4 + ch * 2
+
     def set_output_volume(self, target, ch, value):
         offset = self.__set_output_volume_offset(target, ch)
         self.__set_volume(offset, value)
+
     def get_output_volume(self, target, ch):
         offset = self.__set_output_volume_offset(target, ch)
         return self.__get_volume(offset)
@@ -210,47 +225,57 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
         if ch > 1:
             raise ValueError('Invalid argument for stereo pair channel')
         return 52 + ch * 2
+
     def set_aux_volume(self, ch, value):
         offset = self.__get_aux_volume_offset(ch)
         self.__set_volume(offset, value)
+
     def get_aux_volume(self, ch):
         offset = self.__get_aux_volume_offset(ch)
         return self.__get_volume(offset)
 
     def get_headphone_labels(self):
         return self.__HP_LABELS
+
     def __get_headphone_volume_offset(self, target, ch):
         if target not in self.__HP_LABELS:
             raise ValueError('invalid argument for heaphone stereo pair')
         if ch > 1:
             raise ValueError('Invalid argument for stereo pair channel')
         return 56 + self.__HP_LABELS.index(target) * 4 + ch * 2
+
     def set_headphone_volume(self, target, ch, value):
         offset = self.__get_headphone_volume_offset(target, ch)
         self.__set_volume(offset, value)
+
     def get_headphone_volume(self, target, ch):
         offset = self.__get_headphone_volume_offset(target, ch)
         return self.__get_volume(offset)
 
     def get_aux_input_labels(self):
         return self.__INPUT_LABELS
+
     def __get_aux_input_offset(self, target, ch):
         if target not in self.__INPUT_LABELS:
             raise ValueError('Invalid argument for input stereo pair')
         if ch > 1:
             raise ValueError('Invalid argument for stereo pair channel')
         return 104 + self.__INPUT_LABELS.index(target) * 4 + ch * 2
+
     def set_aux_input(self, target, ch, value):
         offset = self.__get_aux_input_offset(target, ch)
         self.__set_volume(offset, value)
+
     def get_aux_input(self, target, ch):
         offset = self.__get_aux_input_offset(target, ch)
         return self.__get_volume(offset)
 
     def get_mixer_labels(self):
         return self.__MIXER_LABELS
+
     def get_mixer_source_labels(self):
         return self.__INPUT_LABELS
+
     def __calculate_mixer_input_bit(self, mixer, source):
         if mixer not in self.__MIXER_LABELS:
             raise ValueError('invalid argument for mixer stereo pair')
@@ -269,12 +294,14 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
                 pos = 16 + (self.__INPUT_LABELS.index(source) - 6) * 2
                 pos = pos + self.__MIXER_LABELS.index(mixer)
         return pos
+
     def __get_mixer_offset(self, source):
         if source.find('stream') == 0:
             offset = 148
         else:
             offset = 142
         return offset
+
     def set_mixer_routing(self, mixer, source, enable):
         pos = self.__calculate_mixer_input_bit(mixer, source)
         offset = self.__get_mixer_offset(source)
@@ -285,6 +312,7 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
             val &= ~(1 << pos)
         data = pack('>I', val)
         self.__write_data(offset, data)
+
     def get_mixer_routing(self, mixer, source):
         pos = self.__calculate_mixer_input_bit(mixer, source)
         offset = self.__get_mixer_offset(source)
@@ -293,6 +321,7 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
 
     def get_headphone_source_labels(self, target):
         return self.__HP_SOURCE_LABELS
+
     def set_headphone_source(self, target, source):
         if target not in self.__HP_LABELS:
             raise ValueError('Invalid argument for output stereo pair')
@@ -305,6 +334,7 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
         vals[index] = 1 << pos
         data = pack('>2H', vals[0], vals[1])
         self.__write_data(offset, data)
+
     def get_headphone_source(self, target):
         if target not in self.__HP_LABELS:
             raise ValueError('Invalid argument for output stereo pair')
@@ -321,6 +351,7 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
         if target not in self.__OUTPUT_LABELS:
             raise ValueError('Invalid argument for output stereo pair')
         return self.__OUTPUT_LABELS.index(target)
+
     def get_output_source_labels(self, target):
         labels = []
         if target not in self.__OUTPUT_LABELS:
@@ -331,6 +362,7 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
             labels.append('mixer-3/4')
         labels.append('aux-1/2')
         return labels
+
     def set_output_source(self, target, source):
         if target not in self.__OUTPUT_LABELS:
             raise ValueError('Invalid argument for output stereo pair')
@@ -346,6 +378,7 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
             val &= ~(1 << pos)
         data = pack('>I', val)
         self.__write_data(offset, data)
+
     def get_output_source(self, target):
         if target not in self.__OUTPUT_LABELS:
             raise ValueError('Invalid argument for output stereo pair')
@@ -365,7 +398,10 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
     def get_meters(self):
         meters = {}
         req = Hinawa.FwReq()
-        data = req.read(self.unit, self._ADDR_FOR_METERING, 84)
+        data = [0] * 84
+        data = req.transaction(self.unit.get_node(),
+                               Hinawa.FwTcode.READ_BLOCK_REQUEST,
+                               self._ADDR_FOR_METERING, 84, data)
         meters['switch-0'] = data[0]
         meters['rotery-0'] = data[1]
         meters['rotery-1'] = data[2]
@@ -379,8 +415,10 @@ class MaudioProtocolSpecial(MaudioProtocolAbstract):
 
     def get_clock_source_labels(self):
         return ()
+
     def set_clock_source(self, src):
         print('Not supported. Please use ALSA control interface for this aim.')
+
     def get_clock_source(self):
         print('Not supported. Please use ALSA control interface for this aim.')
 

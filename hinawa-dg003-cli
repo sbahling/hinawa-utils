@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2018 Takashi Sakamoto
 
-from hinawa_utils.misc.cui_kit import CuiKit
+from hinawa_utils.misc.cli_kit import CliKit
 from hinawa_utils.dg00x.dg003_unit import Dg003Unit
+
 
 def handle_mixer_state(unit, args):
     ops = ('set', 'get')
@@ -24,6 +25,7 @@ def handle_mixer_state(unit, args):
     print('    OP:     [{0}]'.format('|'.join(ops)))
     print('    ENABLED:[{0}]'.format('|'.join(states)))
     return False
+
 
 def handle_mixer_source(unit, args):
     srcs = unit.get_mixer_src_labels()
@@ -61,12 +63,13 @@ def handle_mixer_source(unit, args):
     print('    BALANCE:[0.000...100.000]')
     return False
 
+
 cmds = {
     'mixer-state':  handle_mixer_state,
     'mixer-source': handle_mixer_source,
 }
 
-fullpath = CuiKit.seek_snd_unit_path()
+fullpath = CliKit.seek_snd_unit_path()
 if fullpath:
-    unit = Dg003Unit(fullpath)
-    CuiKit.dispatch_command(unit, cmds)
+    with Dg003Unit(fullpath) as unit:
+        CliKit.dispatch_command(unit, cmds)
