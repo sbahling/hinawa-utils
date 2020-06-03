@@ -86,7 +86,7 @@ class TscmUnit(Hinawa.SndTscm):
         req = Hinawa.FwReq()
         return req.transaction(self.get_node(),
                         Hinawa.FwTcode.WRITE_QUADLET_REQUEST,
-                        self, self._BASE_ADDR + offset, 4, frames)
+                        self._BASE_ADDR + offset, 4, frames)
 
     def get_firmware_versions(self):
         info = {}
